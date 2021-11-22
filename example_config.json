@@ -1,0 +1,24 @@
+{
+  "SHOPIFY_API_KEY": "yourApiKey",
+  "SHOPIFY_API_SECRET": "yourApiSecret",
+  "SHOPIFY_BASE_URL": "https://your-development-store.myshopify.com",
+
+  "ZEBRA_API_KEY": "yourApiKey",
+  "ZEBRA_TENANT_ACCOUNT_NUMBER": "yourTenantAccountNumber",
+  "PRINTER_SERIAL_NUMBER": "printerSerialNumber",
+  "ZEBRA_BASE_URL": "https://api.zebra.com/v2/devices/printers/send",
+
+  "LABEL_TEMPLATE_FILENAME": "label_templates/stupid_geeks_3x1_v1.txt",
+  "LABEL_TEMPLATE_LINE_MAX_CHARS": {
+     "PRICE_STR": 11,
+     "PRICE_TYPE": 21,
+     "PRODUCT_TITLE_L1": 27,
+     "PRODUCT_TITLE_L2": 27,
+     "BARCODE": 12,
+     "SKU": 16
+  },
+  "LABEL_WIDTH_INCHES": 3,
+  "LABEL_HEIGHT_INCHES": 1,
+
+  "CACHE_DIR": "cache"
+}
