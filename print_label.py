@@ -128,7 +128,7 @@ def query_shopify(
         print(f"GET {uri} received unexpected response: {response.status_code}")
 
 
-def draw_label_as_png(
+def draw_label(
     cache_dir: str,
     filename: str,
     zpl_data: str,
@@ -139,10 +139,23 @@ def draw_label_as_png(
     http://labelary.com/service.html
     """
 
-    uri = f"http://api.labelary.com/v1/printers/8dpmm/labels/{label_width_inches}x{label_height_inches}/0/"
+    file_format = filename.split('.')[-1].lower()
+    if file_format == 'png':
+        headers = {}
+        index_param = '0/'
+    elif file_format == 'pdf':
+        headers = {
+            'accept': 'application/pdf',
+        }
+        index_param = ''
+    else:
+        print(f"Unsupported file format: {file_format}")
+        return None
+
+    uri = f"http://api.labelary.com/v1/printers/8dpmm/labels/{label_width_inches}x{label_height_inches}/{index_param}"
 
     session = requests.Session()
-    response = session.post(uri, data=zpl_data)
+    response = session.post(uri, headers=headers, data=zpl_data)
 
     if response.status_code == 200:
         os.makedirs(cache_dir, exist_ok=True)
@@ -188,25 +201,33 @@ if __name__ == "__main__":
         print("Enter 'Q'+'Enter' or 'Ctrl'+'C' to quit.")
         print('> ', end='')
         userinput = input()
+        userinput_filename = ''
         if userinput in ['q', 'Q']:
             exit()
         elif userinput in ['f', 'F']:
             print('Enter filename:')
             print('> ', end='')
             userinput_filename = input()
-            skus = load_sku_file(user_inputfile)
+            skus = load_sku_file(userinput_filename)
         else:
             skus = [ userinput ]
 
         if skus:
             skus = [ x.upper().strip() for x in skus ]
 
+        all_zpl_data = ''
         for sku in skus:
             print(f"Processing: {sku}...")
-            variant_info = query_shopify_variants(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], sku)
+            variant_info = query_shopify(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], sku)
             write_text_to_file(CONFIG['CACHE_DIR'], sku + '_ProductVariant.json', json.dumps(variant_info, indent=2))
             zpl_data = render_zpl_template(CONFIG['LABEL_TEMPLATE_FILENAME'], CONFIG['LABEL_TEMPLATE_LINE_MAX_CHARS'], variant_info)
+            all_zpl_data = all_zpl_data + '\n' + zpl_data
             write_text_to_file(CONFIG['CACHE_DIR'], sku + '.txt', zpl_data)
-            img_file = draw_label_as_png(CONFIG['CACHE_DIR'], sku + '.png', zpl_data, CONFIG['LABEL_WIDTH_INCHES'], CONFIG['LABEL_HEIGHT_INCHES'])
+            img_file = draw_label(CONFIG['CACHE_DIR'], sku + '.png', zpl_data, CONFIG['LABEL_WIDTH_INCHES'], CONFIG['LABEL_HEIGHT_INCHES'])
             #cloud_print_label(CONFIG['ZEBRA_BASE_URL'], CONFIG['ZEBRA_API_KEY'], CONFIG['PRINTER_SERIAL_NUMBER'], zpl_data)
-            network_print_label(CONFIG['NETWORK_PRINTER_NAME'], img_file)
+            #network_print_label(CONFIG['NETWORK_PRINTER_NAME'], img_file)
+
+        if userinput_filename:
+            file_stem = os.path.splitext(os.path.basename(userinput_filename))[0]
+            pdf_file = draw_label(CONFIG['CACHE_DIR'], file_stem + '.pdf', all_zpl_data, CONFIG['LABEL_WIDTH_INCHES'], CONFIG['LABEL_HEIGHT_INCHES'])
+            print(f"Rendered PDF: {pdf_file}")
