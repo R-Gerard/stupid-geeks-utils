@@ -4,6 +4,7 @@ from string import Template
 from typing import Any, Dict, List
 import os
 import json
+import platform
 import textwrap
 import requests
 
@@ -20,7 +21,7 @@ def init(
         return config
 
 
-def print_label(
+def cloud_print_label(
     base_url: str,
     api_key: str,
     printer_serial_number: str,
@@ -45,6 +46,16 @@ def print_label(
         return response.json()
     else:
         print(f"POST {uri} received unexpected response: {response.status_code}")
+
+
+def network_print_label(
+    printer_name: str,
+    file_name: str,
+) -> None:
+    if platform.system().lower() == 'windows':
+        print('Run linux!')
+    else:
+        os.system(f"lpr -P '{printer_name}' '{file_name}'")
 
 
 def render_zpl_template(
@@ -123,7 +134,7 @@ def draw_label_as_png(
     zpl_data: str,
     label_width_inches: int,
     label_height_inches: int,
-) -> None:
+) -> str:
     """
     http://labelary.com/service.html
     """
@@ -135,10 +146,13 @@ def draw_label_as_png(
 
     if response.status_code == 200:
         os.makedirs(cache_dir, exist_ok=True)
-        with open(os.path.join(cache_dir, filename), 'wb') as f:
+        path = os.path.join(cache_dir, filename)
+        with open(path, 'wb') as f:
             f.write(response.content)
+        return path
     else:
         print(f"POST {uri} received unexpected response: {response.status_code}")
+        return None
 
 
 def write_text_to_file(
@@ -193,5 +207,6 @@ if __name__ == "__main__":
             write_text_to_file(CONFIG['CACHE_DIR'], sku + '_ProductVariant.json', json.dumps(variant_info, indent=2))
             zpl_data = render_zpl_template(CONFIG['LABEL_TEMPLATE_FILENAME'], CONFIG['LABEL_TEMPLATE_LINE_MAX_CHARS'], variant_info)
             write_text_to_file(CONFIG['CACHE_DIR'], sku + '.txt', zpl_data)
-            draw_label_as_png(CONFIG['CACHE_DIR'], sku + '.png', zpl_data, CONFIG['LABEL_WIDTH_INCHES'], CONFIG['LABEL_HEIGHT_INCHES'])
-            #print_label(CONFIG['ZEBRA_BASE_URL'], CONFIG['ZEBRA_API_KEY'], CONFIG['PRINTER_SERIAL_NUMBER'], zpl_data)
+            img_file = draw_label_as_png(CONFIG['CACHE_DIR'], sku + '.png', zpl_data, CONFIG['LABEL_WIDTH_INCHES'], CONFIG['LABEL_HEIGHT_INCHES'])
+            #cloud_print_label(CONFIG['ZEBRA_BASE_URL'], CONFIG['ZEBRA_API_KEY'], CONFIG['PRINTER_SERIAL_NUMBER'], zpl_data)
+            network_print_label(CONFIG['NETWORK_PRINTER_NAME'], img_file)

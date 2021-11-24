@@ -8,6 +8,8 @@
   "PRINTER_SERIAL_NUMBER": "printerSerialNumber",
   "ZEBRA_BASE_URL": "https://api.zebra.com/v2/devices/printers/send",
 
+  "NETWORK_PRINTER_NAME": "Brother_HL_6180DW_series",
+
   "LABEL_TEMPLATE_FILENAME": "label_templates/stupid_geeks_3x1_v1.txt",
   "LABEL_TEMPLATE_LINE_MAX_CHARS": {
      "PRICE_STR": 11,
