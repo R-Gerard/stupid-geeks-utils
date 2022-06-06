@@ -1,24 +1,13 @@
 #!/usr/bin/env python3
 
+from common_utils import init, load_sku_file, write_text_to_file, query_shopify_variants
 from string import Template
-from typing import Any, Dict, List
+from typing import Any, Dict
 import os
 import json
 import platform
 import textwrap
 import requests
-
-
-def init(
-    config_file: str,
-) -> Dict[str, Any]:
-    if not os.path.exists(config_file):
-        print(f"File not found: {config_file}")
-        exit(1)
-
-    with open(config_file, 'r') as f:
-        config = json.loads(f.read())
-        return config
 
 
 def cloud_print_label(
@@ -103,31 +92,6 @@ def render_zpl_template(
         return result
 
 
-def query_shopify(
-    base_url: str,
-    username: str,
-    password: str,
-    product_sku: str,
-) -> Dict[str, Any]:
-    """
-    https://shopify.dev/api/admin-graphql/2021-10/queries/productVariants
-    """
-
-    uri = f"{base_url}/admin/api/2021-10/graphql.json"
-
-    graphql_query = {
-        'query': '{ productVariants(first: 1, query: "sku:\'' + product_sku + '\'") { edges { node { id sku displayName barcode price } } } }'
-    }
-
-    session = requests.Session()
-    response = session.post(uri, json=graphql_query, auth=(username, password))
-
-    if response.status_code == 200:
-        return response.json()['data']['productVariants']['edges'][0]['node']
-    else:
-        print(f"GET {uri} received unexpected response: {response.status_code}")
-
-
 def draw_label(
     cache_dir: str,
     filename: str,
@@ -168,27 +132,6 @@ def draw_label(
         return None
 
 
-def write_text_to_file(
-    cache_dir: str,
-    filename: str,
-    data: str,
-) -> None:
-    os.makedirs(cache_dir, exist_ok=True)
-    with open(os.path.join(cache_dir, filename), 'w') as f:
-        f.write(data)
-
-
-def load_sku_file(
-    filename: str,
-) -> List[str]:
-    if not os.path.exists(filename):
-        print(f"File not found: {filename}")
-        return []
-
-    with open(filename, 'r') as f:
-        return f.readlines()
-
-
 if __name__ == "__main__":
     CONFIG = init('config.json')
 
@@ -218,7 +161,7 @@ if __name__ == "__main__":
         all_zpl_data = ''
         for sku in skus:
             print(f"Processing: {sku}...")
-            variant_info = query_shopify(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], sku)
+            variant_info = query_shopify_variants(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], sku)
             write_text_to_file(CONFIG['CACHE_DIR'], sku + '_ProductVariant.json', json.dumps(variant_info, indent=2))
             zpl_data = render_zpl_template(CONFIG['LABEL_TEMPLATE_FILENAME'], CONFIG['LABEL_TEMPLATE_LINE_MAX_CHARS'], variant_info)
             all_zpl_data = all_zpl_data + '\n' + zpl_data
