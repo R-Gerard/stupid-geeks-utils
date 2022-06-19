@@ -9,13 +9,7 @@ import requests
 def init(
     config_file: str,
 ) -> Dict[str, Any]:
-    if not os.path.exists(config_file):
-        print(f"File not found: {config_file}")
-        exit(1)
-
-    with open(config_file, 'r') as f:
-        config = json.loads(f.read())
-        return config
+    return load_cached_json('', config_file)
 
 
 def load_sku_file(
@@ -29,6 +23,19 @@ def load_sku_file(
         return f.readlines()
 
 
+def load_cached_json(
+    cache_dir: str,
+    filename: str,
+) -> Dict[str, Any]:
+    full_path = os.path.join(cache_dir, filename)
+    if not os.path.exists(full_path):
+        raise Exception(f"File not found: {full_path}")
+
+    with open(full_path, 'r') as f:
+        data = json.loads(f.read())
+        return data
+
+
 def write_text_to_file(
     cache_dir: str,
     filename: str,
@@ -38,6 +45,38 @@ def write_text_to_file(
     with open(os.path.join(cache_dir, filename), 'w') as f:
         f.write(data)
 
+
+def query_pricecharting(
+    api_key: str,
+    variant_info: Dict[str, str],
+) -> Dict[str, Any]:
+    """
+    Searches PriceCharting.com for a product by barcode and makes price recommendations.
+
+    Expects a Shopify productVariants record. For example:
+    {
+      "id": "gid://shopify/ProductVariant/40973509787831",
+      "sku": "NES-IS-GO-12174",
+      "displayName": "A Nightmare on Elm Street - NES (In Store) - Game Only",
+      "barcode": "023582051598",
+      "price": "78.99"
+    }
+
+    https://www.pricecharting.com/api-documentation#overview
+    """
+
+    uri = f"https://www.pricecharting.com/api/product?t={api_key}&upc={variant_info['barcode']}"
+
+    session = requests.Session()
+    response = session.get(uri)
+
+    if response.status_code == 200:
+        product_record = response.json()
+    else:
+        print(f"GET {uri} received unexpected response: {response.status_code}")
+        return
+
+    return product_record
 
 def get_shopify_store_locations(
     base_url: str,
@@ -155,3 +194,49 @@ def increment_inventory_quantity(
         return response.json()
     else:
         print(f"POST {uri} received unexpected response: {response.status_code}")
+
+
+def set_inventory_price(
+    base_url: str,
+    username: str,
+    password: str,
+    variant_info: Dict[str, str],
+    new_price: str,
+) -> None:
+    """
+    Sets a Shopify inventory item price to a new value.
+
+    Expects a Shopify ProductVariant record. For example:
+    {
+      "id": "gid://shopify/ProductVariant/40973170409655",
+      "sku": "N64-IS-GO-3924",
+      "displayName": "Super Mario 64 - Nintendo 64 (In Store) - Game Only",
+      "barcode": "045496870010",
+      "price": "52.99"
+    }
+
+    https://shopify.dev/api/admin-rest/2021-10/resources/product-variant#put-variants-variant-id
+    """
+
+    inventory_item_id = variant_info['id'].split('/')[-1]
+
+    uri = f"{base_url}/admin/api/2021-10/variants/{inventory_item_id}.json"
+
+    payload = {
+        'variant': {
+            'id': inventory_item_id,
+            'price': new_price,
+        }
+    }
+
+    session = requests.Session()
+    response = session.put(uri, json=payload, auth=(username, password))
+
+    if response.status_code == 200:
+        if new_price == response.json()['variant']['price']:
+            print(f"Successfully updated {variant_info['sku']} to ${new_price}")
+        else:
+            print(f"WARNING: failed to update {variant_info['sku']} to ${new_price}")
+        return response.json()
+    else:
+        print(f"PUT {uri} received unexpected response: {response.status_code}")
