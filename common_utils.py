@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from functools import wraps
 from typing import Any, Dict, List
 import os
 import json
@@ -9,7 +10,9 @@ import requests
 def init(
     config_file: str,
 ) -> Dict[str, Any]:
-    return load_cached_json('', config_file)
+    config = load_cached_json('', config_file)
+    os.makedirs(config['CACHE_DIR'], exist_ok=True)
+    return config
 
 
 def load_sku_file(
@@ -46,9 +49,39 @@ def write_text_to_file(
         f.write(data)
 
 
+def cache_json(cache_dir, file_suffix):
+    """
+    Decorator to wrap functions with a simple file caching layer. Checks an
+    optional keyword argument 'product_sku' passed to the wrapped function to
+    control the cached file name.
+
+    Cache files are stored at either:
+    - "{cache_dir}/{product_sku}{file_suffix}"
+    - "{cache_dir}/GLOBAL{file_suffix}"
+    """
+    def decorator_cache_json(func):
+        @wraps(func)
+        def wrapper_cache_json(*args, **kwargs):
+            if 'product_sku' in kwargs:
+                filename = kwargs['product_sku'] + file_suffix
+            else:
+                filename = 'GLOBAL' + file_suffix
+
+            try:
+                return load_cached_json(cache_dir, filename)
+            except:
+                data = func(*args, **kwargs)
+                write_text_to_file(cache_dir, filename, json.dumps(data, indent=2))
+                return data
+        return wrapper_cache_json
+    return decorator_cache_json
+
+
+@cache_json('./cache', '_PriceCharting.json')
 def query_pricecharting(
     api_key: str,
     variant_info: Dict[str, str],
+    product_sku: str,
 ) -> Dict[str, Any]:
     """
     Searches PriceCharting.com for a product by barcode and makes price recommendations.
@@ -78,6 +111,8 @@ def query_pricecharting(
 
     return product_record
 
+
+@cache_json('./cache', '_StoreLocations.json')
 def get_shopify_store_locations(
     base_url: str,
     username: str,
@@ -100,6 +135,7 @@ def get_shopify_store_locations(
         print(f"GET {uri} received unexpected response: {response.status_code}")
 
 
+@cache_json('./cache', '_ProductVariant.json')
 def query_shopify_variants(
     base_url: str,
     username: str,
@@ -125,6 +161,7 @@ def query_shopify_variants(
         print(f"GET {uri} received unexpected response: {response.status_code}")
 
 
+@cache_json('./cache', '_InventoryLevel.json')
 def query_shopify_inventory(
     base_url: str,
     username: str,

@@ -234,8 +234,7 @@ if __name__ == "__main__":
         if current_mode == Mode.INCREMENT_QUANITY_MODE:
             for sku in skus:
                 print(f"Processing: {sku}...")
-                inventory_level = query_shopify_inventory(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], LOCATION_ID, sku)
-                write_text_to_file(CONFIG['CACHE_DIR'], sku + '_InventoryLevel.json', json.dumps(inventory_level, indent=2))
+                inventory_level = query_shopify_inventory(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], LOCATION_ID, product_sku=sku)
                 product_update = increment_inventory_quantity(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], LOCATION_ID, inventory_level)
                 print(json.dumps(product_update, indent=2))
         elif current_mode == Mode.SUGGEST_PRICE_MODE:
@@ -251,12 +250,9 @@ if __name__ == "__main__":
                 csv_writer.writeheader()
                 for sku in set(skus):
                     print(f"Processing: {sku}...")
-                    variant_info = query_shopify_variants(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], sku)
-                    write_text_to_file(CONFIG['CACHE_DIR'], sku + '_ProductVariant.json', json.dumps(variant_info, indent=2))
-                    pricecharting_info = query_pricecharting(CONFIG['PRICECHARTING_API_KEY'], variant_info)
-                    write_text_to_file(CONFIG['CACHE_DIR'], sku + '_PriceCharting.json', json.dumps(pricecharting_info, indent=2))
+                    variant_info = query_shopify_variants(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], product_sku=sku)
+                    pricecharting_info = query_pricecharting(CONFIG['PRICECHARTING_API_KEY'], variant_info, product_sku=sku)
                     price_diff_cents, current_value_cents = diff_prices(variant_info, pricecharting_info)
-
                     suggested_price_cents, comment_str = apply_price_matrix(CONFIG['PRICE_MATRIX'], sku, price_diff_cents, current_value_cents)
 
                     csv_row = {
@@ -287,8 +283,7 @@ if __name__ == "__main__":
                         continue
 
                     print(f"Processing: {sku}...")
-                    # FIXME: need to handle cases where the cache is cleared
-                    variant_info = load_cached_json(CONFIG['CACHE_DIR'], sku + '_ProductVariant.json')
+                    variant_info = query_shopify_variants(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], product_sku=sku)
                     new_price = cents_to_s(dollar_to_i(csv_row['Suggested Price']))
                     product_update = set_inventory_price(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], variant_info, new_price)
                     print(json.dumps(product_update, indent=2))
