@@ -161,8 +161,7 @@ if __name__ == "__main__":
         all_zpl_data = ''
         for sku in skus:
             print(f"Processing: {sku}...")
-            variant_info = query_shopify_variants(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], sku)
-            write_text_to_file(CONFIG['CACHE_DIR'], sku + '_ProductVariant.json', json.dumps(variant_info, indent=2))
+            variant_info = query_shopify_variants(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], product_sku=sku)
             zpl_data = render_zpl_template(CONFIG['LABEL_TEMPLATE_FILENAME'], CONFIG['LABEL_TEMPLATE_LINE_MAX_CHARS'], variant_info)
             all_zpl_data = all_zpl_data + '\n' + zpl_data
             write_text_to_file(CONFIG['CACHE_DIR'], sku + '.txt', zpl_data)
