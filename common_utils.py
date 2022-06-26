@@ -4,6 +4,8 @@ from functools import wraps
 from typing import Any, Dict, List, ForwardRef
 import os
 import json
+import time
+import datetime
 import requests
 
 
@@ -62,12 +64,15 @@ class CacheJson:
     - "{cache_dir}/GLOBAL{file_suffix}"
     """
     cache_dir = None
+    create_times_file = 'GLOBAL_CacheIndex.json'
 
     def __init__(
         self,
         file_suffix: str,
+        expires_in: datetime.timedelta=None
     ) -> ForwardRef('CacheJson'):
         self.file_suffix = file_suffix
+        self.expires_in = expires_in
 
     def __call__(self, func):
         @wraps(func)
@@ -78,12 +83,50 @@ class CacheJson:
                 filename = 'GLOBAL' + self.file_suffix
 
             try:
+                if self.is_expired(filename):
+                    full_path = os.path.join(CacheJson.cache_dir, filename)
+                    os.remove(full_path)
+
                 return load_cached_json(CacheJson.cache_dir, filename)
             except:
                 data = func(*args, **kwargs)
                 write_text_to_file(CacheJson.cache_dir, filename, json.dumps(data, indent=2))
+                self.update_create_times(filename)
                 return data
         return wrapper_cache_json
+
+    def is_expired(
+        self,
+        filename: str
+    ) -> bool:
+        full_path = os.path.join(CacheJson.cache_dir, filename)
+        if not os.path.exists(full_path):
+            return False
+
+        if not self.expires_in:
+            return False
+
+        try:
+            create_times = load_cached_json(CacheJson.cache_dir, CacheJson.create_times_file)
+        except:
+            return False
+
+        if filename not in create_times:
+            return False
+
+        return create_times[filename] + int(self.expires_in.total_seconds()) <= int(time.time())
+
+    def update_create_times(
+        self,
+        filename: str
+    ) -> None:
+        try:
+            create_times = load_cached_json(CacheJson.cache_dir, CacheJson.create_times_file)
+        except:
+            create_times = {}
+
+        create_times[filename] = int(time.time())
+        write_text_to_file(CacheJson.cache_dir, CacheJson.create_times_file, json.dumps(create_times, indent=2))
 
 
 class InvalidatesCache:
@@ -120,7 +163,7 @@ class InvalidatesCache:
         return wrapper_invalidate_cache
 
 
-@CacheJson(file_suffix='_PriceCharting.json')
+@CacheJson(file_suffix='_PriceCharting.json', expires_in=datetime.timedelta(days=1))
 def query_pricecharting(
     api_key: str,
     variant_info: Dict[str, str],
