@@ -13,6 +13,7 @@ def init(
     config = load_cached_json('', config_file)
     os.makedirs(config['CACHE_DIR'], exist_ok=True)
     CacheJson.cache_dir = config['CACHE_DIR']
+    InvalidatesCache.cache_dir = config['CACHE_DIR']
     return config
 
 
@@ -83,6 +84,40 @@ class CacheJson:
                 write_text_to_file(CacheJson.cache_dir, filename, json.dumps(data, indent=2))
                 return data
         return wrapper_cache_json
+
+
+class InvalidatesCache:
+    """
+    Decorator to wrap functions that update remote state and thus invalidate
+    cached data. Checks an optional keyword argument 'product_sku' passed to the
+    wrapped function to control the cached file name.
+
+    Cache files are DELETED at either:
+    - "{cache_dir}/{product_sku}{file_suffix}"
+    - "{cache_dir}/GLOBAL{file_suffix}"
+    """
+    cache_dir = None
+
+    def __init__(
+        self,
+        file_suffix: str,
+    ) -> ForwardRef('InvalidatesCache'):
+        self.file_suffix = file_suffix
+
+    def __call__(self, func):
+        @wraps(func)
+        def wrapper_invalidate_cache(*args, **kwargs):
+            if 'product_sku' in kwargs:
+                filename = kwargs['product_sku'] + self.file_suffix
+            else:
+                filename = 'GLOBAL' + self.file_suffix
+
+            full_path = os.path.join(CacheJson.cache_dir, filename)
+            if os.path.exists(full_path):
+                os.remove(full_path)
+
+            return func(*args, **kwargs)
+        return wrapper_invalidate_cache
 
 
 @CacheJson(file_suffix='_PriceCharting.json')
@@ -196,12 +231,14 @@ def query_shopify_inventory(
         print(f"GET {uri} received unexpected response: {response.status_code}")
 
 
+@InvalidatesCache(file_suffix='_InventoryLevel.json')
 def increment_inventory_quantity(
     base_url: str,
     username: str,
     password: str,
     location_id: int,
     inventory_item: Dict[str, str],
+    product_sku: str,
 ) -> None:
     """
     Increments a Shopify inventory quantity by 1.
@@ -241,12 +278,14 @@ def increment_inventory_quantity(
         print(f"POST {uri} received unexpected response: {response.status_code}")
 
 
+@InvalidatesCache(file_suffix='_ProductVariant.json')
 def set_inventory_price(
     base_url: str,
     username: str,
     password: str,
     variant_info: Dict[str, str],
     new_price: str,
+    product_sku: str,
 ) -> None:
     """
     Sets a Shopify inventory item price to a new value.
