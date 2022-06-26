@@ -51,5 +51,12 @@
     }
   },
 
+  "PREMIUM_TITLES": {
+    "70%": [
+      "N64-IS-GO-3780",
+      "N64-IS-GO-3977"
+    ]
+  },
+
   "CACHE_DIR": "cache"
 }
