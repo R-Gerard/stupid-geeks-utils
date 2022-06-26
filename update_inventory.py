@@ -39,6 +39,16 @@ def dollar_to_i(
     return 100 * dollars + cents
 
 
+def percent_to_f(
+    percent: str,
+) -> float:
+    """
+    Converts a percent string to a float.
+
+    Example: 70% = 0.7
+    """
+    return float(re.sub(r"\D", '', percent)) / 100
+
 # Map Shopify's 2/3-letter product type in the SKU to PriceCharting's price key(s)
 SKU_PRICE_KEYS = {
     'GO': ['loose-price'],
@@ -99,6 +109,7 @@ def diff_prices(
 
 def apply_price_matrix(
     price_matrix: Dict[str, Dict[str, Dict[str, str]]],
+    premium_titles: Dict[str, List[str]],
     sku: str,
     price_diff_cents: int,
     current_value_cents: int,
@@ -107,6 +118,8 @@ def apply_price_matrix(
     Traverses a price matrix according to SKU console_code and current_value to
     locate a price_diff_threshold and suggested_price_step, then generate a new
     suggested price and an explanation string of the logic applied.
+    Applies a price "premium" (percentage markup above market value) if the sku
+    is identified in the
 
     Example price matrix:
     {
@@ -135,7 +148,21 @@ def apply_price_matrix(
         }
       }
     }
+
+    Example premium title list:
+    {
+      "70%": [
+        "N64-IS-GO-3780",
+        "N64-IS-GO-3977"
+      ]
+    }
     """
+    comments = ''
+    inverted_premium_titles = {}
+    for k,l in premium_titles.items():
+        for v in l:
+            inverted_premium_titles[v] = k
+
     console_key = (lambda x : x if x in price_matrix else 'DEFAULT')(sku.split('-')[0])
     try:
         temp_price: int = [ x for x in sorted([ dollar_to_i(y) for y in price_matrix[console_key].keys() ]) if x > current_value_cents ][0]
@@ -147,15 +174,21 @@ def apply_price_matrix(
     suggested_price_step_cents = dollar_to_i(price_matrix[console_key][price_tier]['SUGGESTED_PRICE_STEP'])
     original_price_cents = current_value_cents - price_diff_cents
 
+    if sku in inverted_premium_titles:
+        comments = 'Premium title: '
+        premium_markup = 1.0 + percent_to_f(inverted_premium_titles[sku])
+        current_value_cents = int(premium_markup * current_value_cents)
+        price_diff_cents = current_value_cents - original_price_cents
+
     if price_diff_cents > price_diff_threshold_cents:
         new_suggested_price_cents = (current_value_cents // suggested_price_step_cents + 1) * suggested_price_step_cents - 1
-        return (new_suggested_price_cents, 'Market increase')
+        return (new_suggested_price_cents, f"{comments}Market increase")
     elif price_diff_cents < 0:
-        return (original_price_cents, 'Market drop')
+        return (original_price_cents, f"{comments}Market drop")
     else:
         return (
             original_price_cents,
-            f"Price is OK (within ${cents_to_s(price_diff_threshold_cents)})"
+            f"{comments}Price is OK (within ${cents_to_s(price_diff_threshold_cents)})"
         )
 
 
@@ -253,7 +286,7 @@ if __name__ == "__main__":
                     variant_info = query_shopify_variants(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], product_sku=sku)
                     pricecharting_info = query_pricecharting(CONFIG['PRICECHARTING_API_KEY'], variant_info, product_sku=sku)
                     price_diff_cents, current_value_cents = diff_prices(variant_info, pricecharting_info)
-                    suggested_price_cents, comment_str = apply_price_matrix(CONFIG['PRICE_MATRIX'], sku, price_diff_cents, current_value_cents)
+                    suggested_price_cents, comment_str = apply_price_matrix(CONFIG['PRICE_MATRIX'], CONFIG['PREMIUM_TITLES'], sku, price_diff_cents, current_value_cents)
 
                     csv_row = {
                         'SKU': sku,
