@@ -268,7 +268,7 @@ if __name__ == "__main__":
             for sku in skus:
                 print(f"Processing: {sku}...")
                 inventory_level = query_shopify_inventory(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], LOCATION_ID, product_sku=sku)
-                product_update = increment_inventory_quantity(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], LOCATION_ID, inventory_level)
+                product_update = increment_inventory_quantity(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], LOCATION_ID, inventory_level, product_sku=sku)
                 print(json.dumps(product_update, indent=2))
         elif current_mode == Mode.SUGGEST_PRICE_MODE:
             if not csv_file_path:
@@ -318,7 +318,7 @@ if __name__ == "__main__":
                     print(f"Processing: {sku}...")
                     variant_info = query_shopify_variants(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], product_sku=sku)
                     new_price = cents_to_s(dollar_to_i(csv_row['Suggested Price']))
-                    product_update = set_inventory_price(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], variant_info, new_price)
+                    product_update = set_inventory_price(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], variant_info, new_price, product_sku=sku)
                     print(json.dumps(product_update, indent=2))
         else:
             raise Exception(f"Unsupported Mode: {current_mode.name}")
