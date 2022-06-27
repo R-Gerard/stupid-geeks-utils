@@ -23,6 +23,7 @@
   },
   "LABEL_WIDTH_INCHES": 3,
   "LABEL_HEIGHT_INCHES": 1,
+  "MAX_LABELS_PER_PDF": 50,
 
   "PRICE_MATRIX": {
     "NES": {
