@@ -284,7 +284,7 @@ if __name__ == "__main__":
                 for sku in set(skus):
                     print(f"Processing: {sku}...")
                     variant_info = query_shopify_variants(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], product_sku=sku)
-                    pricecharting_info = query_pricecharting(CONFIG['PRICECHARTING_API_KEY'], variant_info, product_sku=sku)
+                    pricecharting_info = query_pricecharting(CONFIG['PRICECHARTING_API_KEY'], product_sku=sku)
                     inventory_level = query_shopify_inventory(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], LOCATION_ID, product_sku=sku)
                     price_diff_cents, current_value_cents = diff_prices(variant_info, pricecharting_info)
                     suggested_price_cents, comment_str = apply_price_matrix(CONFIG['PRICE_MATRIX'], CONFIG['PREMIUM_TITLES'], sku, price_diff_cents, current_value_cents)
