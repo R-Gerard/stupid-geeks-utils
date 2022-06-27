@@ -193,7 +193,7 @@ def query_pricecharting(
         product_record = response.json()
     else:
         print(f"GET {uri} received unexpected response: {response.status_code}")
-        return
+        raise Exception(json.dumps(response.json(), indent=2))
 
     return product_record
 
@@ -219,6 +219,7 @@ def get_shopify_store_locations(
         return filtered_response
     else:
         print(f"GET {uri} received unexpected response: {response.status_code}")
+        raise Exception(json.dumps(response.json(), indent=2))
 
 
 @CacheJson(file_suffix='_ProductVariant.json')
@@ -245,6 +246,7 @@ def query_shopify_variants(
         return response.json()['data']['productVariants']['edges'][0]['node']
     else:
         print(f"GET {uri} received unexpected response: {response.status_code}")
+        raise Exception(json.dumps(response.json(), indent=2))
 
 
 @CacheJson(file_suffix='_InventoryLevel.json', expires_in=datetime.timedelta(minutes=15))
@@ -272,6 +274,7 @@ def query_shopify_inventory(
         return response.json()['data']['inventoryItems']['edges'][0]['node']
     else:
         print(f"GET {uri} received unexpected response: {response.status_code}")
+        raise Exception(json.dumps(response.json(), indent=2))
 
 
 @InvalidatesCache(file_suffix='_InventoryLevel.json')
@@ -319,6 +322,7 @@ def increment_inventory_quantity(
         return response.json()
     else:
         print(f"POST {uri} received unexpected response: {response.status_code}")
+        raise Exception(json.dumps(response.json(), indent=2))
 
 
 @InvalidatesCache(file_suffix='_ProductVariant.json')
@@ -367,3 +371,4 @@ def set_inventory_price(
         return response.json()
     else:
         print(f"PUT {uri} received unexpected response: {response.status_code}")
+        raise Exception(json.dumps(response.json(), indent=2))
