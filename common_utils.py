@@ -247,7 +247,7 @@ def query_shopify_variants(
         print(f"GET {uri} received unexpected response: {response.status_code}")
 
 
-@CacheJson(file_suffix='_InventoryLevel.json')
+@CacheJson(file_suffix='_InventoryLevel.json', expires_in=datetime.timedelta(minutes=15))
 def query_shopify_inventory(
     base_url: str,
     username: str,

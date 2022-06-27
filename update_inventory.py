@@ -277,7 +277,7 @@ if __name__ == "__main__":
             if os.path.exists(csv_file_path):
                 os.remove(csv_file_path)
 
-            CSV_COL_NAMES = ['SKU', 'Store Title', 'PC Title', 'PC Console', 'Current Price', 'Current Value', 'Suggested Price', 'Comments']
+            CSV_COL_NAMES = ['SKU', 'Store Title', 'PC Title', 'PC Console', 'Current Price', 'Current Value', 'Suggested Price', 'Qty In Stock', 'Comments']
             with open(csv_file_path, 'w', newline='') as f:
                 csv_writer = csv.DictWriter(f, fieldnames=CSV_COL_NAMES)
                 csv_writer.writeheader()
@@ -285,6 +285,7 @@ if __name__ == "__main__":
                     print(f"Processing: {sku}...")
                     variant_info = query_shopify_variants(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], product_sku=sku)
                     pricecharting_info = query_pricecharting(CONFIG['PRICECHARTING_API_KEY'], variant_info, product_sku=sku)
+                    inventory_level = query_shopify_inventory(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], LOCATION_ID, product_sku=sku)
                     price_diff_cents, current_value_cents = diff_prices(variant_info, pricecharting_info)
                     suggested_price_cents, comment_str = apply_price_matrix(CONFIG['PRICE_MATRIX'], CONFIG['PREMIUM_TITLES'], sku, price_diff_cents, current_value_cents)
 
@@ -296,6 +297,7 @@ if __name__ == "__main__":
                         'Current Price': f"${variant_info['price']}",
                         'Current Value': f"${cents_to_s(current_value_cents)}",
                         'Suggested Price': f"${cents_to_s(suggested_price_cents)}",
+                        'Qty In Stock': f"{inventory_level['inventoryLevel']['available']}",
                         'Comments': comment_str,
                     }
 
