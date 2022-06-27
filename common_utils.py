@@ -166,25 +166,17 @@ class InvalidatesCache:
 @CacheJson(file_suffix='_PriceCharting.json', expires_in=datetime.timedelta(days=1))
 def query_pricecharting(
     api_key: str,
-    variant_info: Dict[str, str],
     product_sku: str,
 ) -> Dict[str, Any]:
     """
-    Searches PriceCharting.com for a product by barcode and makes price recommendations.
-
-    Expects a Shopify productVariants record. For example:
-    {
-      "id": "gid://shopify/ProductVariant/40973509787831",
-      "sku": "NES-IS-GO-12174",
-      "displayName": "A Nightmare on Elm Street - NES (In Store) - Game Only",
-      "barcode": "023582051598",
-      "price": "78.99"
-    }
+    Searches PriceCharting.com for a product by ID and makes price recommendations.
 
     https://www.pricecharting.com/api-documentation#overview
     """
 
-    uri = f"https://www.pricecharting.com/api/product?t={api_key}&upc={variant_info['barcode']}"
+    pricecharting_id = product_sku.split('-')[3]
+
+    uri = f"https://www.pricecharting.com/api/product?t={api_key}&id={pricecharting_id}"
 
     session = requests.Session()
     response = session.get(uri)
