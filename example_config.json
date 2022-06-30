@@ -25,6 +25,25 @@
   "LABEL_HEIGHT_INCHES": 1,
   "MAX_LABELS_PER_PDF": 50,
 
+  "MARKET_FORMULAS": {
+    "$15.00": {
+      "GO": ["loose-price"],
+      "NS": ["new-price"],
+      "GMB": ["cib-price", "$1.00"],
+      "GB": ["loose-price", "box-only-price"],
+      "MO": ["manual-only-price"],
+      "BO": ["box-only-price"]
+    },
+    "$100.00": {
+      "GO": ["loose-price"],
+      "NS": ["new-price"],
+      "GMB": ["loose-price", "manual-only-price", "box-only-price"],
+      "GB": ["loose-price", "box-only-price"],
+      "MO": ["manual-only-price"],
+      "BO": ["box-only-price"]
+    }
+  },
+
   "PRICE_MATRIX": {
     "NES": {
       "$5.00": {
