@@ -49,19 +49,33 @@ def percent_to_f(
     """
     return float(re.sub(r"\D", '', percent)) / 100
 
-# Map Shopify's 2/3-letter product type in the SKU to PriceCharting's price key(s)
-SKU_PRICE_KEYS = {
-    'GO': ['loose-price'],
-    'NS': ['new-price'],
-    #'GMB': ['cib-price']
-    'GMB': ['loose-price', 'manual-only-price', 'box-only-price'],
-    'GB': ['loose-price', 'box-only-price'],
-    'MO': ['manual-only-price'],
-    'BO': ['box-only-price'],
-}
+
+def navigate_matrix_by_price_tier(
+    matrix: Dict[str, any],
+    current_value_cents: int,
+) -> Dict[str, any]:
+    """
+    Navigates a dictionary with dollar amount keys, returning the value
+    corresponding to the key greater than the index parameter. Defaults to the
+    value with the highest-value key if the index parameter is greater than all
+    keys.
+
+    Example: { "$10": x, "$20": y}
+    current_value_cents = 100 ($1.00), result = x
+    current_value_cents = 1001 ($10.01), result = y
+    current_value_cents = 9999 ($99.99), result = y
+    """
+    try:
+        temp_price: int = [ x for x in sorted([ dollar_to_i(y) for y in matrix.keys() ]) if x > current_value_cents ][0]
+    except:
+        temp_price: int = sorted([ dollar_to_i(x) for x in matrix.keys() ])[-1]
+    price_matrix_price_tier = [ x for x in matrix.keys() if dollar_to_i(x) == temp_price ][0]
+
+    return matrix[price_matrix_price_tier]
 
 
 def diff_prices(
+    market_formulas: Dict[str, Dict[str, List[str]]],
     variant_info: Dict[str, str],
     pricecharting_info: Dict[str, str],
 ) -> Tuple[int, int]:
@@ -72,6 +86,27 @@ def diff_prices(
     Example 1: PriceCharting "2000" - Shopify "19.99" = (1, 2000)
     Example 2: PriceCharting "1995" - Shopify "19.99" = (-4, 1995)
     Example 3: PriceCharting "100" - Shopify "100.00" = (-9900, 100)
+
+    Expects a market formulas matrix that maps Shopify's 2/3-letter product type
+    in the SKU to PriceCharting's price key(s). For example:
+    {
+      "$15.00": {
+        "GO": ["loose-price"],
+        "NS": ["new-price"],
+        "GMB": ["cib-price", "$1.00"],
+        "GB": ["loose-price", "box-only-price"],
+        "MO": ["manual-only-price"],
+        "BO": ["box-only-price"]
+      },
+      "$100.00": {
+        "GO": ["loose-price"],
+        "NS": ["new-price"],
+        "GMB": ["loose-price", "manual-only-price", "box-only-price"],
+        "GB": ["loose-price", "box-only-price"],
+        "MO": ["manual-only-price"],
+        "BO": ["box-only-price"]
+      }
+    }
 
     Expects a Shopify productVariants record. For example:
     {
@@ -100,9 +135,15 @@ def diff_prices(
     """
     product_type = variant_info['sku'].split('-')[2]
     current_price = dollar_to_i(variant_info['price'])
+
+    sku_price_keys: Dict[str, List[str]] = navigate_matrix_by_price_tier(market_formulas, current_price)
+
     market_value = 0
-    for price_key in SKU_PRICE_KEYS[product_type]:
-        market_value += int(pricecharting_info[price_key])
+    for price_key in sku_price_keys[product_type]:
+        if price_key.startswith('$'):
+            market_value += dollar_to_i(price_key)
+        else:
+            market_value += int(pricecharting_info[price_key])
 
     return (market_value - current_price), market_value
 
@@ -164,14 +205,10 @@ def apply_price_matrix(
             inverted_premium_titles[v] = k
 
     console_key = (lambda x : x if x in price_matrix else 'DEFAULT')(sku.split('-')[0])
-    try:
-        temp_price: int = [ x for x in sorted([ dollar_to_i(y) for y in price_matrix[console_key].keys() ]) if x > current_value_cents ][0]
-    except:
-        temp_price: int = sorted([ dollar_to_i(x) for x in price_matrix[console_key].keys() ])[-1]
-    price_tier: str = [ x for x in price_matrix[console_key].keys() if dollar_to_i(x) == temp_price ][0]
+    price_matrix_console_prices: Dict[str, str] = navigate_matrix_by_price_tier(price_matrix[console_key], current_value_cents)
 
-    price_diff_threshold_cents = dollar_to_i(price_matrix[console_key][price_tier]['PRICE_DIFF_THRESHOLD'])
-    suggested_price_step_cents = dollar_to_i(price_matrix[console_key][price_tier]['SUGGESTED_PRICE_STEP'])
+    price_diff_threshold_cents = dollar_to_i(price_matrix_console_prices['PRICE_DIFF_THRESHOLD'])
+    suggested_price_step_cents = dollar_to_i(price_matrix_console_prices['SUGGESTED_PRICE_STEP'])
     original_price_cents = current_value_cents - price_diff_cents
 
     if sku in inverted_premium_titles:
@@ -286,7 +323,7 @@ if __name__ == "__main__":
                     variant_info = query_shopify_variants(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], product_sku=sku)
                     pricecharting_info = query_pricecharting(CONFIG['PRICECHARTING_API_KEY'], product_sku=sku)
                     inventory_level = query_shopify_inventory(CONFIG['SHOPIFY_BASE_URL'], CONFIG['SHOPIFY_API_KEY'], CONFIG['SHOPIFY_API_SECRET'], LOCATION_ID, product_sku=sku)
-                    price_diff_cents, current_value_cents = diff_prices(variant_info, pricecharting_info)
+                    price_diff_cents, current_value_cents = diff_prices(CONFIG['MARKET_FORMULAS'], variant_info, pricecharting_info)
                     suggested_price_cents, comment_str = apply_price_matrix(CONFIG['PRICE_MATRIX'], CONFIG['PREMIUM_TITLES'], sku, price_diff_cents, current_value_cents)
 
                     csv_row = {
