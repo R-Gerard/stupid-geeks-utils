@@ -30,7 +30,7 @@ def cloud_print_label(
     }
 
     session = requests.Session()
-    response = session.post(base_url, headers=headers, data=payload)
+    response = session.post(base_url, headers=headers, data=payload.encode('utf-8'))
 
     if response.status_code == 200:
         return response.json()
@@ -120,7 +120,7 @@ def draw_label(
     uri = f"http://api.labelary.com/v1/printers/8dpmm/labels/{label_width_inches}x{label_height_inches}/{index_param}"
 
     session = requests.Session()
-    response = session.post(uri, headers=headers, data=zpl_data)
+    response = session.post(uri, headers=headers, data=zpl_data.encode('utf-8'))
 
     if response.status_code == 200:
         os.makedirs(cache_dir, exist_ok=True)
