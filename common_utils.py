@@ -181,7 +181,7 @@ def query_pricecharting(
     session = requests.Session()
     response = session.get(uri)
 
-    if response.status_code == 200:
+    if response.status_code == 200 and 'errors' not in response.json():
         product_record = response.json()
     else:
         print(f"GET {uri} received unexpected response: {response.status_code}")
@@ -205,7 +205,7 @@ def get_shopify_store_locations(
     session = requests.Session()
     response = session.get(uri, auth=(username, password))
 
-    if response.status_code == 200:
+    if response.status_code == 200 and 'locations' in response.json():
         locations = response.json()['locations']
         filtered_response = [ { k:d[k] for k in ['id', 'name'] } for d in locations ]
         return filtered_response
@@ -234,7 +234,7 @@ def query_shopify_variants(
     session = requests.Session()
     response = session.post(uri, json=graphql_query, auth=(username, password))
 
-    if response.status_code == 200:
+    if response.status_code == 200 and 'data' in response.json():
         return response.json()['data']['productVariants']['edges'][0]['node']
     else:
         print(f"GET {uri} received unexpected response: {response.status_code}")
@@ -256,13 +256,13 @@ def query_shopify_inventory(
     uri = f"{base_url}/admin/api/2021-10/graphql.json"
 
     graphql_query = {
-        'query': '{ inventoryItems(first: 1, query: "sku:\'' + product_sku + '\'") { edges { node { id sku inventoryLevel(locationId:"gid://shopify/Location/' + str(location_id) + '\'") { id available } } } } }'
+        'query': '{ inventoryItems(first: 1, query: "sku:\'' + product_sku + '\'") { edges { node { id sku inventoryLevel(locationId:"gid://shopify/Location/' + str(location_id) + '") { id available } } } } }'
     }
 
     session = requests.Session()
     response = session.post(uri, json=graphql_query, auth=(username, password))
 
-    if response.status_code == 200:
+    if response.status_code == 200 and 'data' in response.json():
         return response.json()['data']['inventoryItems']['edges'][0]['node']
     else:
         print(f"GET {uri} received unexpected response: {response.status_code}")
@@ -305,7 +305,7 @@ def increment_inventory_quantity(
     session = requests.Session()
     response = session.post(uri, json=payload, auth=(username, password))
 
-    if response.status_code == 200:
+    if response.status_code == 200 and 'inventory_level' in response.json():
         expected_quantity = inventory_item['inventoryLevel']['available'] + 1
         if expected_quantity == response.json()['inventory_level']['available']:
             print(f"Successfully updated {inventory_item['sku']} to {expected_quantity}")
@@ -355,7 +355,7 @@ def set_inventory_price(
     session = requests.Session()
     response = session.put(uri, json=payload, auth=(username, password))
 
-    if response.status_code == 200:
+    if response.status_code == 200 and 'variant' in response.json():
         if new_price == response.json()['variant']['price']:
             print(f"Successfully updated {variant_info['sku']} to ${new_price}")
         else:
